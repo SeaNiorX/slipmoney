@@ -26,21 +26,33 @@ MONTH_GROUPS = {
     6: ['มิถุนายน', 'มิถุนา', 'มิ.ย.', 'มิ.ย', 'มิย', 'มิ.บ', 'มิบ', 'jun', 'june'],
     7: ['กรกฎาคม', 'กรกฎา', 'ก.ค.', 'ก.ค', 'กค', 'jul', 'july'],
     8: ['สิงหาคม', 'สิงหา', 'ส.ค.', 'ส.ค', 'สค', 'aug', 'august'],
-    9: ['กันยายน', 'กันยา', 'ก.ย.', 'ก.ย', 'กย', 'กุย', 'ทุย', 'ท.ย', 'ทย', 'ก.บ', 'กบ', 'n.d', 'n.al', 'nel', 'nel.', 'nei', 'nei.', 'sep', 'sept', 'september'],
+    9: ['กันยายน', 'กันยา', 'ก.ย.', 'ก.ย', 'กย', 'กทย', 'กทุย', 'กุย', 'ทุย', 'ท.ย', 'ทย', 'ก.บ', 'กบ', 'n.d', 'nd', 'n.al', 'nal', 'nel', 'nel.', 'nei', 'nei.', 'ne1', 'sep', 'sept', 'september'],
     10: ['ตุลาคม', 'ตุลา', 'ต.ค.', 'ต.ค', 'ตค', 'oct', 'october'],
     11: ['พฤศจิกายน', 'พฤศจิกา', 'พ.ย.', 'พ.ย', 'พย', 'พ.บ', 'พบ', 'nov', 'november'],
     12: ['ธันวาคม', 'ธันวา', 'ธ.ค.', 'ธ.ค', 'ธค', 'dec', 'december']
 }
 
 def match_month(token):
-    """Fuzzy match a text token to a month number 1-12"""
+    """Fuzzy match a text token to a month number 1-12, ignoring punctuation and internal spaces"""
     if not token:
         return None
-    clean = token.strip('. -/').lower()
+    # Strip spaces, dots, slashes, punctuation to catch 'ก. ย.', 'ก . ย .', 'ก.ย.', 'nel.'
+    token_clean = re.sub(r'[^a-zA-Zก-๙]', '', token).lower()
+    if not token_clean:
+        return None
+    
+    # 1. Exact match against cleaned variants
     for m_num, variants in MONTH_GROUPS.items():
         for v in variants:
-            v_clean = v.strip('. ').lower()
-            if clean == v_clean or clean.startswith(v_clean) or v_clean in clean:
+            v_clean = re.sub(r'[^a-zA-Zก-๙]', '', v).lower()
+            if token_clean == v_clean:
+                return m_num
+
+    # 2. Substring or prefix match
+    for m_num, variants in MONTH_GROUPS.items():
+        for v in variants:
+            v_clean = re.sub(r'[^a-zA-Zก-๙]', '', v).lower()
+            if len(v_clean) >= 2 and (token_clean.startswith(v_clean) or v_clean in token_clean):
                 return m_num
     return None
 
@@ -58,18 +70,25 @@ def clean_year(raw_year):
 
 def preprocess_image(image_path):
     """
-    Load image, transpose EXIF orientation, convert directly to grayscale,
-    and scale to optimal OCR dimensions (width 450px for ultra-fast 2-3s OCR on cloud).
+    Load image, transpose EXIF orientation, convert to grayscale,
+    and dynamically scale to optimal OCR dimensions (width ~750px)
+    to preserve fine Thai character strokes and punctuation while running fast.
     """
     try:
         raw_img = Image.open(image_path)
         gray = ImageOps.exif_transpose(raw_img).convert('L')
         
-        # Scale image to 450px (dramatically reduces pixel workload while maintaining Thai clarity)
         w, h = gray.size
-        target_w = 450
-        target_h = int(h * (target_w / w))
-        scaled = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        if w > 750:
+            target_w = 750
+            target_h = int(h * (target_w / w))
+            scaled = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        elif w < 550:
+            target_w = 650
+            target_h = int(h * (target_w / w))
+            scaled = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        else:
+            scaled = gray
 
         # Contrast enhancement
         enhancer = ImageEnhance.Contrast(scaled)
@@ -139,7 +158,7 @@ def parse_date(text):
     """
     Extract date and convert to standard YYYY-MM-DD.
     Handles:
-    - 28 ก.ย. 67, 28 กย 67, 28 ก.ย. 2567, 25 ทุย. 2569, 25 กุย. 2569
+    - 28 ก.ย. 67, 28 กย 67, 28 ก.ย. 2567, 25 ทุย. 2569, 25 nel. 2569, 25 ก. ย. 2569
     - 28 Sep 2024, 28 Sep 24, 28-Sep-2024, September 28, 2026
     - 28/09/2026, 28/09/2567, 28-09-2024, 28.09.67
     - 2026-09-28, 2567-09-28
@@ -149,54 +168,58 @@ def parse_date(text):
 
     normalized = text.replace('\xa0', ' ')
 
-    # 1. Day + Month (Name/Abbr/OCR variant) + Year
-    # e.g., 25 ทุย. 2569, 28 Sep 2024, 15 กรกฎาคม 2567
-    pat_dmy = r'(\b\d{1,2})\s*[-\/.\s]?\s*([A-Za-zก-๙\.]+)\s*[-\/.\s]?\s*(\d{2,4})'
+    # 1. Day + Month + Year (handling spaces, dots, and Thai characters inside month e.g. 25 ก. ย. 2569 or 25 nel. 2569)
+    pat_dmy = r'(?:^|[^\d])([0-3]?\d)\s*([^\d\r\n:;]{1,16}?)\s*([12]\d{3}|\d{2})(?:[^\d]|$)'
     for match in re.finditer(pat_dmy, normalized):
-        day = int(match.group(1))
-        month = match_month(match.group(2))
-        if month and 1 <= month <= 12 and 1 <= day <= 31:
-            year = clean_year(match.group(3))
-            try:
-                return datetime.date(year, month, day).strftime('%Y-%m-%d')
-            except ValueError:
-                pass
+        try:
+            day = int(match.group(1))
+            m_str = match.group(2).strip()
+            y_str = match.group(3).strip()
+            month = match_month(m_str)
+            if month and 1 <= month <= 12 and 1 <= day <= 31:
+                year = clean_year(y_str)
+                if 2000 <= year <= 2099:
+                    return datetime.date(year, month, day).strftime('%Y-%m-%d')
+        except Exception:
+            pass
 
     # 2. Month + Day + Year (e.g. Sep 25, 2026 or September 25 2026)
-    pat_mdy = r'\b([A-Za-zก-๙\.]+)\s+(\d{1,2})(?:st|nd|rd|th)?[\s,]+(\d{2,4})\b'
+    pat_mdy = r'(?:^|[^\d])([A-Za-zก-๙]{3,15})\s+([0-3]?\d)(?:st|nd|rd|th)?[\s,]+([12]\d{3}|\d{2})(?:[^\d]|$)'
     for match in re.finditer(pat_mdy, normalized):
-        month = match_month(match.group(1))
-        day = int(match.group(2))
-        if month and 1 <= month <= 12 and 1 <= day <= 31:
-            year = clean_year(match.group(3))
-            try:
-                return datetime.date(year, month, day).strftime('%Y-%m-%d')
-            except ValueError:
-                pass
+        try:
+            month = match_month(match.group(1))
+            day = int(match.group(2))
+            y_str = match.group(3).strip()
+            if month and 1 <= month <= 12 and 1 <= day <= 31:
+                year = clean_year(y_str)
+                if 2000 <= year <= 2099:
+                    return datetime.date(year, month, day).strftime('%Y-%m-%d')
+        except Exception:
+            pass
 
     # 3. DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
     dmy = re.findall(r'(\b\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})\b', normalized)
     for d_str, m_str, y_str in dmy:
-        day = int(d_str)
-        month = int(m_str)
-        year = clean_year(y_str)
-        if 1 <= month <= 12 and 1 <= day <= 31:
-            try:
+        try:
+            day = int(d_str)
+            month = int(m_str)
+            year = clean_year(y_str)
+            if 1 <= month <= 12 and 1 <= day <= 31 and 2000 <= year <= 2099:
                 return datetime.date(year, month, day).strftime('%Y-%m-%d')
-            except ValueError:
-                pass
+        except ValueError:
+            pass
 
     # 4. YYYY/MM/DD or YYYY-MM-DD
     ymd = re.findall(r'\b(20\d{2}|25\d{2})[\/\.-](\d{1,2})[\/\.-](\d{1,2})\b', normalized)
     for y_str, m_str, d_str in ymd:
-        year = clean_year(y_str)
-        month = int(m_str)
-        day = int(d_str)
-        if 1 <= month <= 12 and 1 <= day <= 31:
-            try:
+        try:
+            year = clean_year(y_str)
+            month = int(m_str)
+            day = int(d_str)
+            if 1 <= month <= 12 and 1 <= day <= 31 and 2000 <= year <= 2099:
                 return datetime.date(year, month, day).strftime('%Y-%m-%d')
-            except ValueError:
-                pass
+        except ValueError:
+            pass
 
     return None
 
@@ -214,8 +237,8 @@ def parse_time(text):
 
     normalized = text.replace('\xa0', ' ')
 
-    # 1. Explicit keywords: e.g. เวลา 14:32 or เวลา 14.32 or Time: 14:32
-    kw_time = re.findall(r'(?:เวลา|time|at)\s*[:.]?\s*([01]?\d|2[0-3])\s*[:.;]\s*([0-5]\d)\b', normalized, re.IGNORECASE)
+    # 1. Explicit keywords: e.g. เวลา 14:32 or เวลา 14.32 or Time: 14:32 or Time: 1432
+    kw_time = re.findall(r'(?:เวลา|time|at)\s*[:.]?\s*([01]?\d|2[0-3])\s*[:.;]?\s*([0-5]\d)\b', normalized, re.IGNORECASE)
     for h_str, m_str in kw_time:
         hour = int(h_str)
         minute = int(m_str)
