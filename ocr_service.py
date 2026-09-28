@@ -12,7 +12,8 @@ if os.path.exists(TESSERACT_EXE):
 
 PROJECT_DIR = os.path.abspath(os.path.dirname(__file__))
 TESSDATA_DIR = os.path.join(PROJECT_DIR, "tessdata")
-if os.path.exists(TESSDATA_DIR):
+# Only set TESSDATA_PREFIX on Windows; on Linux use system tesseract-ocr-tha
+if os.name == 'nt' and os.path.exists(TESSDATA_DIR):
     os.environ["TESSDATA_PREFIX"] = TESSDATA_DIR
 
 # Comprehensive Month mapping supporting Thai (abbreviations, full names, OCR artifacts) and English
@@ -66,14 +67,14 @@ def preprocess_image(image_path):
         # Fix orientation from mobile phone cameras (EXIF)
         orig = ImageOps.exif_transpose(raw_img).convert('RGB')
         
-        # Scale image to optimal OCR dimensions (width around 1200-1500px)
+        # Scale image to optimal OCR dimensions (width around 1000px for high speed & clarity)
         w, h = orig.size
-        if w > 1800:
-            target_w = 1500
+        if w > 1200:
+            target_w = 1000
             target_h = int(h * (target_w / w))
             scaled = orig.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        elif w < 800:
-            target_w = 1200
+        elif w < 600:
+            target_w = 900
             target_h = int(h * (target_w / w))
             scaled = orig.resize((target_w, target_h), Image.Resampling.BICUBIC)
         else:
@@ -312,20 +313,24 @@ def process_slip(image_path):
     images = preprocess_image(image_path)
     combined_text = ""
 
-    langs = ['tha+eng', 'eng']
-    
-    for img in images:
-        for lang in langs:
+    # Smart sequential OCR with early break: Stop as soon as amount is found
+    for idx, img in enumerate(images):
+        txt = ""
+        try:
+            txt = pytesseract.image_to_string(img, lang='tha+eng')
+        except Exception as e:
+            print(f"OCR tha+eng error: {e}")
             try:
-                txt = pytesseract.image_to_string(img, lang=lang)
-                if txt:
-                    combined_text += "\n" + txt
-            except Exception:
-                try:
-                    txt = pytesseract.image_to_string(img, lang='eng')
-                    combined_text += "\n" + txt
-                except Exception:
-                    pass
+                txt = pytesseract.image_to_string(img, lang='eng')
+            except Exception as e2:
+                print(f"OCR eng error: {e2}")
+                txt = ""
+
+        if txt:
+            combined_text += "\n" + txt
+            # Check if amount is already found; if so, break early without running 5 more OCR passes
+            if parse_amount(combined_text):
+                break
 
     amount = parse_amount(combined_text)
     date = parse_date(combined_text)
