@@ -26,7 +26,7 @@ MONTH_GROUPS = {
     6: ['มิถุนายน', 'มิถุนา', 'มิ.ย.', 'มิ.ย', 'มิย', 'มิ.บ', 'มิบ', 'jun', 'june'],
     7: ['กรกฎาคม', 'กรกฎา', 'ก.ค.', 'ก.ค', 'กค', 'jul', 'july'],
     8: ['สิงหาคม', 'สิงหา', 'ส.ค.', 'ส.ค', 'สค', 'aug', 'august'],
-    9: ['กันยายน', 'กันยา', 'ก.ย.', 'ก.ย', 'กย', 'กุย', 'ทุย', 'ท.ย', 'ทย', 'ก.บ', 'กบ', 'n.d', 'n.al', 'sep', 'sept', 'september'],
+    9: ['กันยายน', 'กันยา', 'ก.ย.', 'ก.ย', 'กย', 'กุย', 'ทุย', 'ท.ย', 'ทย', 'ก.บ', 'กบ', 'n.d', 'n.al', 'nel', 'nel.', 'nei', 'nei.', 'sep', 'sept', 'september'],
     10: ['ตุลาคม', 'ตุลา', 'ต.ค.', 'ต.ค', 'ตค', 'oct', 'october'],
     11: ['พฤศจิกายน', 'พฤศจิกา', 'พ.ย.', 'พ.ย', 'พย', 'พ.บ', 'พบ', 'nov', 'november'],
     12: ['ธันวาคม', 'ธันวา', 'ธ.ค.', 'ธ.ค', 'ธค', 'dec', 'december']
@@ -59,32 +59,25 @@ def clean_year(raw_year):
 def preprocess_image(image_path):
     """
     Load image, transpose EXIF orientation, convert directly to grayscale,
-    and scale to optimal OCR dimensions (width around 600px for 5x speedup on cloud CPU).
+    and scale to optimal OCR dimensions (width 450px for ultra-fast 2-3s OCR on cloud).
     """
-    images = []
     try:
         raw_img = Image.open(image_path)
-        # Fix orientation from mobile phone cameras (EXIF) and convert to Grayscale
         gray = ImageOps.exif_transpose(raw_img).convert('L')
         
-        # Scale image to optimal OCR dimensions (width around 600px is the sweet spot for mobile slips)
+        # Scale image to 450px (dramatically reduces pixel workload while maintaining Thai clarity)
         w, h = gray.size
-        target_w = 600
+        target_w = 450
         target_h = int(h * (target_w / w))
         scaled = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-        # Primary variant: balanced contrast
+        # Contrast enhancement
         enhancer = ImageEnhance.Contrast(scaled)
         primary = enhancer.enhance(1.4)
-        images.append(primary)
-
-        # Fallback variant: higher contrast (only used if primary didn't find amount)
-        high_contrast = enhancer.enhance(1.9)
-        images.append(high_contrast)
-
+        return [primary]
     except Exception as e:
         print(f"Image preprocessing error: {e}")
-    return images
+        return []
 
 def parse_amount(text):
     """
@@ -261,7 +254,7 @@ def parse_ref_no(text):
 
     patterns = [
         # Explicit reference keywords with flexible spacing/fuzzy OCR noise
-        r'(?:รหัส[^\s]{0,6}อ[^\s]{0,4}งอิง|รหัสอ้างอิง|เลขที่อ้างอิง|หมายเลขอ้างอิง|เลขที่รายการ|เลขที่สลิป|รหัสธุรกรรม|ref(?:\s*no\.?|\.?)|trans(?:\s*ref\.?|\.?)|reference(?:\s*no\.?|\.?)|txn(?:\s*id\.?|\.?))[\s:=]*([a-zA-Z0-9]{8,35})',
+        r'(?:รหัส[^\s]*|เลขที่[^\s]*|หมายเลข[^\s]*|ref(?:\s*no\.?|\.?)|trans(?:\s*ref\.?|\.?)|reference(?:\s*no\.?|\.?)|txn(?:\s*id\.?|\.?))[\s:=]*([a-zA-Z0-9]{8,35})',
         # Word boundary matching ref / txn codes
         r'\b(?:ref|txn)[\s:.-]*([a-zA-Z0-9]{10,35})\b',
     ]
@@ -303,15 +296,15 @@ def process_slip(image_path):
     images = preprocess_image(image_path)
     combined_text = ""
 
-    # Smart sequential OCR with early break: Stop as soon as amount is found
+    # Ultra-fast single pass OCR
     for idx, img in enumerate(images):
         txt = ""
         try:
-            txt = pytesseract.image_to_string(img, lang='tha+eng')
+            txt = pytesseract.image_to_string(img, lang='tha+eng', config='-c tessedit_do_invert=0')
         except Exception as e:
             print(f"OCR tha+eng error: {e}")
             try:
-                txt = pytesseract.image_to_string(img, lang='eng')
+                txt = pytesseract.image_to_string(img, lang='eng', config='-c tessedit_do_invert=0')
             except Exception as e2:
                 print(f"OCR eng error: {e2}")
                 txt = ""
