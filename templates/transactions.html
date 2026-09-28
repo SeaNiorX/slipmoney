@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t["transactions_title"] }}{% endblock %}
+
+{% block content %}
+<div class="transactions-page-container">
+    <!-- Page Header & Action -->
+    <div class="page-header-row">
+        <div>
+            <h1 class="page-title">{{ t["transactions_title"] }}</h1>
+            <p class="page-subtitle">{{ t["transactions_desc"] }}</p>
+        </div>
+        <a href="{{ url_for('add_transaction') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            <span>{{ t["add_transaction"] }}</span>
+        </a>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card filter-toolbar-card">
+        <form method="GET" action="{{ url_for('transactions') }}" class="filter-form-grid" id="filterForm">
+            <!-- Search Keyword -->
+            <div class="filter-group group-search">
+                <div class="input-icon-wrapper">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" 
+                           name="search" 
+                           class="form-control" 
+                           placeholder="{{ t['search'] }}" 
+                           value="{{ search }}">
+                </div>
+            </div>
+
+            <!-- Filter Type -->
+            <div class="filter-group">
+                <select name="type" class="form-control" onchange="document.getElementById('filterForm').submit()">
+                    <option value="all" {% if filter_type == 'all' %}selected{% endif %}>{{ t["filter_type"] }}: {{ t["filter_all"] }}</option>
+                    <option value="income" {% if filter_type == 'income' %}selected{% endif %}>{{ t["income"] }}</option>
+                    <option value="expense" {% if filter_type == 'expense' %}selected{% endif %}>{{ t["expense"] }}</option>
+                </select>
+            </div>
+
+            <!-- Filter Category -->
+            <div class="filter-group">
+                <select name="category" class="form-control" onchange="document.getElementById('filterForm').submit()">
+                    <option value="all" {% if filter_category == 'all' %}selected{% endif %}>{{ t["filter_category"] }}</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.val }}" {% if filter_category == cat.val %}selected{% endif %}>
+                            {{ t[cat.key] }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter Month -->
+            <div class="filter-group">
+                <select name="month" class="form-control" onchange="document.getElementById('filterForm').submit()">
+                    <option value="all" {% if filter_month == 'all' %}selected{% endif %}>{{ t["filter_month"] }}</option>
+                    {% for m in available_months %}
+                        <option value="{{ m }}" {% if filter_month == m %}selected{% endif %}>
+                            {{ m }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Filter Submit & Clear Buttons -->
+            <div class="filter-btn-group">
+                <button type="submit" class="btn btn-outline-primary" title="{{ t['search'] }}">
+                    <i class="fa-solid fa-filter"></i>
+                </button>
+                {% if filter_type != 'all' or filter_category != 'all' or filter_month != 'all' or search %}
+                <a href="{{ url_for('transactions') }}" class="btn btn-outline-secondary" title="{{ t['filter_clear'] }}">
+                    <i class="fa-solid fa-xmark"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Transactions Data Table -->
+    <div class="card table-card">
+        <div class="table-responsive-wrapper">
+            {% if transactions and transactions|length > 0 %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ t["table_date"] }}</th>
+                        <th>{{ t["table_type"] }}</th>
+                        <th>{{ t["table_category"] }}</th>
+                        <th>{{ t["table_description"] }}</th>
+                        <th class="text-right">{{ t["table_amount"] }}</th>
+                        <th class="text-center">{{ t["table_slip"] }}</th>
+                        <th class="text-center">{{ t["table_actions"] }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr>
+                        <td class="cell-datetime">
+                            <span class="date-text">{{ tx.date }}</span>
+                            <span class="time-text">{{ tx.time }}</span>
+                        </td>
+                        <td>
+                            {% if tx.type == 'income' %}
+                                <span class="badge badge-income">
+                                    <i class="fa-solid fa-arrow-down-left"></i>
+                                    {{ t["income"] }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-expense">
+                                    <i class="fa-solid fa-arrow-up-right"></i>
+                                    {{ t["expense"] }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="category-pill">
+                                {{ tx.category | cat_name }}
+                            </span>
+                        </td>
+                        <td class="cell-desc">
+                            <span>{{ tx.description or '-' }}</span>
+                            {% if tx.ref_no %}
+                            <div style="margin-top: 3px;">
+                                <span class="badge" style="background: var(--bg-hover); color: var(--text-secondary); font-family: monospace; font-size: 0.72rem; padding: 2px 6px; border: 1px solid var(--border-color);">
+                                    <i class="fa-solid fa-receipt"></i> {{ tx.ref_no }}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="text-right font-bold {% if tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            {% if tx.type == 'income' %}+{% else %}-{% endif %}฿{{ tx.amount | currency }}
+                        </td>
+                        <td class="text-center">
+                            {% if tx.slip_filename %}
+                                <button type="button" 
+                                        class="btn-icon-slip" 
+                                        onclick="openSlipModal('{{ url_for('uploaded_file', filename=tx.slip_filename) }}')"
+                                        title="{{ t['view_slip'] }}">
+                                    <i class="fa-solid fa-file-image"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-muted-dash">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="action-btn-group">
+                                <!-- View Details Button -->
+                                <button type="button" 
+                                        class="btn-icon-action btn-action-view" 
+                                        onclick="openDetailModal({{ tx | tojson | forceescape }})"
+                                        title="{{ t['transaction_details'] }}">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                <!-- Delete Button -->
+                                <button type="button" 
+                                        class="btn-icon-action btn-action-delete" 
+                                        onclick="openDeleteModal({{ tx.id }})"
+                                        title="{{ t['delete'] }}">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state-box">
+                <div class="empty-icon">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+                <p class="empty-text">{{ t["no_transactions_found"] }}</p>
+                {% if filter_type != 'all' or filter_category != 'all' or filter_month != 'all' or search %}
+                    <a href="{{ url_for('transactions') }}" class="btn btn-outline-primary mt-2">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>{{ t["filter_clear"] }}</span>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('add_transaction') }}" class="btn btn-primary mt-2">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>{{ t["add_transaction"] }}</span>
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Full Transaction Details -->
+<div class="modal-overlay" id="detailModal" onclick="closeDetailModal(event)">
+    <div class="modal-card modal-detail-view">
+        <div class="modal-header">
+            <div class="modal-title-group">
+                <i class="fa-solid fa-receipt text-primary"></i>
+                <h3>{{ t["transaction_details"] }}</h3>
+            </div>
+            <button class="btn-close-modal" onclick="closeDetailModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">{{ t["transaction_type"] }}</span>
+                    <span class="detail-value" id="detailType"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">{{ t["amount"] }}</span>
+                    <span class="detail-value font-bold" id="detailAmount"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">{{ t["date"] }}</span>
+                    <span class="detail-value" id="detailDate"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">{{ t["time"] }}</span>
+                    <span class="detail-value" id="detailTime"></span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">{{ t["category"] }}</span>
+                    <span class="detail-value" id="detailCategory"></span>
+                </div>
+                <div class="detail-item detail-full">
+                    <span class="detail-label">{{ t["description"] }}</span>
+                    <span class="detail-value" id="detailDescription"></span>
+                </div>
+                <div class="detail-item detail-full" id="detailSlipWrapper" style="display: none;">
+                    <span class="detail-label">{{ t["slip_image"] }}</span>
+                    <div class="detail-slip-box">
+                        <img id="detailSlipImg" src="" alt="{{ t['slip_image'] }}" class="detail-slip-thumb">
+                        <button type="button" class="btn btn-outline-primary btn-sm mt-2" onclick="viewSlipFromDetail()">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i> {{ t["view_slip"] }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDetailModal()">{{ t["close"] }}</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.categoryNamesMap = {
+        {% for cat in categories %}
+            "{{ cat.val }}": "{{ t[cat.key] }}",
+        {% endfor %}
+    };
+    window.langIncomeText = "{{ t['income'] }}";
+    window.langExpenseText = "{{ t['expense'] }}";
+    window.currencySymbol = "{{ t['currency_symbol'] }}";
+    window.deleteEndpointBase = "{{ url_for('delete_transaction', tx_id=0) }}".replace('/0', '/');
+</script>
+<script src="{{ url_for('static', filename='js/transactions.js') }}"></script>
+{% endblock %}

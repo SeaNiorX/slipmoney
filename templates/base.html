@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t["app_name"] }} - {% block title %}{{ t["dashboard"] }}{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="{{ url_for('dashboard') }}" class="brand-link">
+                    <div class="brand-icon">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <span class="brand-name">{{ t["app_name"] }}</span>
+                </a>
+            </div>
+
+            {% if session.get('logged_in') %}
+            <!-- Desktop Navigation Links -->
+            <nav class="nav-menu" id="navMenu">
+                <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>{{ t["dashboard"] }}</span>
+                </a>
+                <a href="{{ url_for('transactions') }}" class="nav-item {% if request.endpoint == 'transactions' %}active{% endif %}">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>{{ t["transactions"] }}</span>
+                </a>
+                <a href="{{ url_for('savings') }}" class="nav-item {% if request.endpoint == 'savings' %}active{% endif %}">
+                    <i class="fa-solid fa-piggy-bank"></i>
+                    <span>{{ t["savings"] }}</span>
+                </a>
+                <a href="{{ url_for('add_transaction') }}" class="nav-item btn-nav-add {% if request.endpoint == 'add_transaction' %}active{% endif %}">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>{{ t["add_transaction"] }}</span>
+                </a>
+            </nav>
+            {% endif %}
+
+            <!-- Right Controls: Language Switcher & Logout -->
+            <div class="nav-actions">
+                <!-- Language Switcher in Navbar -->
+                <div class="lang-switcher" title="{{ t['switch_lang'] }}">
+                    <a href="{{ url_for('set_language', lang='th') }}" 
+                       class="lang-pill {% if current_lang == 'th' %}active{% endif %}">
+                        🇹🇭 ไทย
+                    </a>
+                    <span class="lang-divider">|</span>
+                    <a href="{{ url_for('set_language', lang='en') }}" 
+                       class="lang-pill {% if current_lang == 'en' %}active{% endif %}">
+                        EN English
+                    </a>
+                </div>
+
+                {% if session.get('logged_in') %}
+                <a href="{{ url_for('reset_password') }}" class="btn-logout" title="{{ t['reset_password'] }}" style="margin-right: 0.25rem;">
+                    <i class="fa-solid fa-key"></i>
+                    <span class="logout-text">{{ t["reset_password"] }}</span>
+                </a>
+                <a href="{{ url_for('logout') }}" class="btn-logout btn-logout-danger" title="{{ t['logout'] }}">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span class="logout-text">{{ t["logout"] }}</span>
+                </a>
+                
+                <!-- Mobile Menu Hamburger -->
+                <button class="mobile-toggle" id="mobileMenuBtn" aria-label="Toggle menu">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Mobile Drawer Menu -->
+        {% if session.get('logged_in') %}
+        <div class="mobile-drawer" id="mobileDrawer">
+            <a href="{{ url_for('dashboard') }}" class="mobile-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>{{ t["dashboard"] }}</span>
+            </a>
+            <a href="{{ url_for('transactions') }}" class="mobile-item {% if request.endpoint == 'transactions' %}active{% endif %}">
+                <i class="fa-solid fa-list-check"></i>
+                <span>{{ t["transactions"] }}</span>
+            </a>
+            <a href="{{ url_for('savings') }}" class="mobile-item {% if request.endpoint == 'savings' %}active{% endif %}">
+                <i class="fa-solid fa-piggy-bank"></i>
+                <span>{{ t["savings"] }}</span>
+            </a>
+            <a href="{{ url_for('add_transaction') }}" class="mobile-item mobile-add-btn {% if request.endpoint == 'add_transaction' %}active{% endif %}">
+                <i class="fa-solid fa-plus"></i>
+                <span>{{ t["add_transaction"] }}</span>
+            </a>
+            <a href="{{ url_for('reset_password') }}" class="mobile-item">
+                <i class="fa-solid fa-key"></i>
+                <span>{{ t["reset_password"] }}</span>
+            </a>
+            <div class="mobile-divider"></div>
+            <a href="{{ url_for('logout') }}" class="mobile-item text-danger">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>{{ t["logout"] }}</span>
+            </a>
+        </div>
+        {% endif %}
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+        <!-- Flash Notification Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                        <div class="flash-alert flash-{{ category }}">
+                            <div class="flash-content">
+                                <i class="fa-solid {% if category == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                            <button class="flash-close" onclick="this.parentElement.remove();">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Modal for Slip Preview -->
+    <div class="modal-overlay" id="slipModal" onclick="closeSlipModal(event)">
+        <div class="modal-card modal-slip-view">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <i class="fa-solid fa-file-invoice-dollar text-primary"></i>
+                    <h3>{{ t["slip_preview"] }}</h3>
+                </div>
+                <button class="btn-close-modal" onclick="closeSlipModal()">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalSlipImg" src="" alt="{{ t['slip_image'] }}" class="slip-large-img">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSlipModal()">{{ t["close"] }}</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Modal for Delete Confirmation -->
+    <div class="modal-overlay" id="deleteModal" onclick="closeDeleteModal(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group text-danger">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <h3>{{ t["delete_confirm_title"] }}</h3>
+                </div>
+                <button class="btn-close-modal" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>{{ t["delete_confirm_msg"] }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">{{ t["cancel"] }}</button>
+                <form id="deleteForm" method="POST" action="">
+                    <button type="submit" class="btn btn-danger">{{ t["confirm_delete"] }}</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

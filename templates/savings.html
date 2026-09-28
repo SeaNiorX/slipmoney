@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t["savings_title"] }}{% endblock %}
+
+{% block content %}
+<div class="savings-page-container">
+    <!-- Header with Action Button -->
+    <div class="page-header-row mb-4">
+        <div>
+            <h1 class="page-title d-flex align-items-center gap-2">
+                <i class="fa-solid fa-piggy-bank text-primary"></i>
+                <span>{{ t["savings_title"] }}</span>
+            </h1>
+            <p class="page-subtitle">{{ t["savings_desc"] }}</p>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="openCreateGoalModal()">
+            <i class="fa-solid fa-plus"></i>
+            <span>{{ t["create_goal_btn"] }}</span>
+        </button>
+    </div>
+
+    <!-- Savings Stats Metric Cards -->
+    <div class="metrics-grid mb-4">
+        <!-- 1. Total Saved -->
+        <div class="metric-card card-income">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["total_savings"] }}</span>
+                <div class="metric-icon-bubble icon-income">
+                    <i class="fa-solid fa-piggy-bank"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-success">
+                    <span class="currency">{{ t["currency_symbol"] }}</span>{{ stats.total_saved | currency }}
+                </div>
+                <div class="metric-trend text-muted" style="font-size: 0.82rem; margin-top: 4px;">
+                    {{ stats.overall_percent }}% {{ t["of_target"] if t.get("of_target") else "ของเป้าหมายรวม" }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Total Target -->
+        <div class="metric-card card-balance">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["total_target_val"] }}</span>
+                <div class="metric-icon-bubble icon-balance">
+                    <i class="fa-solid fa-bullseye"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-primary">
+                    <span class="currency">{{ t["currency_symbol"] }}</span>{{ stats.total_target | currency }}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Active Goals -->
+        <div class="metric-card card-count">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["active_goals_count"] }}</span>
+                <div class="metric-icon-bubble icon-count">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-warning">
+                    {{ stats.active_goals }} <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary);">{{ t["items_count"] }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Completed Goals -->
+        <div class="metric-card card-expense">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["completed_goals_count"] }}</span>
+                <div class="metric-icon-bubble icon-income">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-success">
+                    {{ stats.completed_goals }} <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary);">{{ t["items_count"] }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Goals Grid -->
+    {% if goals and goals|length > 0 %}
+    <div class="savings-goals-grid mb-5">
+        {% for goal in goals %}
+        <div class="card piggy-card {% if goal.is_completed %}goal-completed-card{% endif %}" style="--goal-color: {{ goal.color }};">
+            <!-- Goal Card Top Colored Stripe -->
+            <div class="piggy-card-stripe"></div>
+
+            <div class="piggy-card-body">
+                <!-- Header: Icon & Title -->
+                <div class="piggy-header">
+                    <div class="piggy-icon-box" style="background-color: {{ goal.color }}20; color: {{ goal.color }};">
+                        <i class="fa-solid fa-{{ goal.icon }}"></i>
+                    </div>
+                    <div class="piggy-title-wrap">
+                        <h3 class="piggy-title">{{ goal.name }}</h3>
+                        {% if goal.target_date %}
+                        <span class="piggy-deadline">
+                            <i class="fa-regular fa-calendar"></i> {{ goal.target_date }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if goal.is_completed %}
+                    <span class="badge badge-success goal-badge">
+                        <i class="fa-solid fa-trophy"></i> {{ t["goal_completed_badge"] }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if goal.note %}
+                <p class="piggy-note">{{ goal.note }}</p>
+                {% endif %}
+
+                <!-- Amount Information -->
+                <div class="piggy-amounts">
+                    <div>
+                        <span class="amount-label">{{ t["total_savings"] }}</span>
+                        <div class="saved-amount" style="color: {{ goal.color }};">
+                            <span class="currency">{{ t["currency_symbol"] }}</span>{{ goal.current_amount | currency }}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="amount-label">{{ t["target_amount"] }}</span>
+                        <div class="target-amount">
+                            <span class="currency">{{ t["currency_symbol"] }}</span>{{ goal.target_amount | currency }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="piggy-progress-wrap">
+                    <div class="piggy-progress-bar">
+                        <div class="piggy-progress-fill" style="width: {{ goal.percent }}%; background-color: {{ goal.color }};"></div>
+                    </div>
+                    <div class="piggy-progress-stats">
+                        <span class="percent-text font-bold" style="color: {{ goal.color }};">{{ goal.percent }}%</span>
+                        {% if not goal.is_completed %}
+                        <span class="remaining-text text-muted" style="font-size: 0.8rem;">
+                            {{ t["remaining_to_goal"].format(amount=(goal.remaining | currency)) }}
+                        </span>
+                        {% else %}
+                        <span class="remaining-text text-success font-bold" style="font-size: 0.8rem;">
+                            100% Complete!
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Piggy Action Buttons -->
+                <div class="piggy-actions">
+                    <button type="button" class="btn btn-sm btn-primary flex-1" onclick="openDepositModal({{ goal.id }}, '{{ goal.name }}')">
+                        <i class="fa-solid fa-circle-plus"></i>
+                        <span>{{ t["deposit_btn"] }}</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary flex-1" onclick="openWithdrawModal({{ goal.id }}, '{{ goal.name }}', {{ goal.current_amount }})">
+                        <i class="fa-solid fa-circle-minus"></i>
+                        <span>{{ t["withdraw_btn"] }}</span>
+                    </button>
+                    <form method="POST" action="{{ url_for('api_savings_delete', goal_id=goal.id) }}" onsubmit="return confirm('{{ t['confirm_delete_goal'] }}');" style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-outline-danger btn-icon-only" title="{{ t['delete'] }}">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="card p-5 text-center mb-5 empty-savings-box">
+        <div class="empty-piggy-icon text-primary mb-3">
+            <i class="fa-solid fa-piggy-bank fa-3x" style="opacity: 0.6;"></i>
+        </div>
+        <h3 class="mb-2">{{ t["savings_title"] }}</h3>
+        <p class="text-muted mb-4">{{ t["no_goals_yet"] }}</p>
+        <div>
+            <button type="button" class="btn btn-primary" onclick="openCreateGoalModal()">
+                <i class="fa-solid fa-plus"></i>
+                <span>{{ t["create_goal_btn"] }}</span>
+            </button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Savings Activity History Section -->
+    <div class="card mb-4">
+        <div class="card-header-styled">
+            <div class="header-icon-box" style="background: rgba(16, 185, 129, 0.1); color: var(--color-success);">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            <div>
+                <h3 class="card-title">{{ t["history_title"] }}</h3>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if history and history|length > 0 %}
+            <div class="table-responsive-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>{{ t["table_date"] }}</th>
+                            <th>{{ t["goal_name"] }}</th>
+                            <th>{{ t["table_type"] }}</th>
+                            <th>{{ t["description"] }}</th>
+                            <th class="text-right">{{ t["table_amount"] }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in history %}
+                        <tr>
+                            <td class="cell-datetime">{{ h.date }}</td>
+                            <td>
+                                <span class="badge" style="background-color: {{ h.color }}20; color: {{ h.color }}; font-weight: 600;">
+                                    <i class="fa-solid fa-{{ h.icon }}"></i> {{ h.goal_name }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if h.type == 'deposit' %}
+                                <span class="badge badge-income">
+                                    <i class="fa-solid fa-arrow-down-left"></i> {{ t["deposit_btn"] }}
+                                </span>
+                                {% else %}
+                                <span class="badge badge-expense">
+                                    <i class="fa-solid fa-arrow-up-right"></i> {{ t["withdraw_btn"] }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="cell-desc">{{ h.note or '-' }}</td>
+                            <td class="text-right font-bold {% if h.type == 'deposit' %}text-success{% else %}text-danger{% endif %}">
+                                {% if h.type == 'deposit' %}+{% else %}-{% endif %}฿{{ h.amount | currency }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted p-4 text-center">{{ t["no_history"] }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ================= Modal: Create Savings Goal ================= -->
+<div class="modal-overlay" id="createGoalModal" onclick="closeModalOnOutside(event, 'createGoalModal')">
+    <div class="modal-card modal-md">
+        <div class="modal-header">
+            <div class="modal-title-group text-primary">
+                <i class="fa-solid fa-piggy-bank"></i>
+                <h3>{{ t["create_goal_btn"] }}</h3>
+            </div>
+            <button type="button" class="btn-close-modal" onclick="closeModal('createGoalModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('api_savings_create') }}">
+            <div class="modal-body">
+                <!-- Goal Name -->
+                <div class="form-group mb-3">
+                    <label class="form-label font-bold">
+                        {{ t["goal_name"] }} <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" name="name" class="form-control" placeholder="{{ t['goal_name_placeholder'] }}" required>
+                </div>
+
+                <!-- Target Amount & Initial Amount -->
+                <div class="form-row-2 mb-3">
+                    <div class="form-group">
+                        <label class="form-label font-bold">
+                            {{ t["target_amount"] }} (฿) <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" step="0.01" min="1" name="target_amount" class="form-control" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            {{ t["initial_deposit"] }} (฿)
+                        </label>
+                        <input type="number" step="0.01" min="0" name="current_amount" class="form-control" value="0.00">
+                        <small class="text-muted" style="font-size: 0.78rem; display: block; margin-top: 4px;">
+                            <i class="fa-solid fa-wallet"></i> {{ t["available_balance"] }}: <strong>฿{{ main_balance | currency }}</strong>
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Target Date -->
+                <div class="form-group mb-3">
+                    <label class="form-label">
+                        <i class="fa-regular fa-calendar"></i> {{ t["target_date"] }}
+                    </label>
+                    <input type="date" name="target_date" class="form-control">
+                </div>
+
+                <!-- Icon Picker -->
+                <div class="form-group mb-3">
+                    <label class="form-label font-bold">{{ t["goal_icon"] }}</label>
+                    <div class="icon-picker-grid">
+                        {% for ic in savings_icons %}
+                        <label class="icon-choice-item">
+                            <input type="radio" name="icon" value="{{ ic.val }}" {% if loop.first %}checked{% endif %}>
+                            <span class="icon-choice-box" title="{{ ic.label }}">
+                                <i class="{{ ic.icon }}"></i>
+                            </span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Color Theme Picker -->
+                <div class="form-group mb-3">
+                    <label class="form-label font-bold">{{ t["goal_color"] }}</label>
+                    <div class="color-picker-grid">
+                        {% for col in savings_colors %}
+                        <label class="color-choice-item">
+                            <input type="radio" name="color" value="{{ col.val }}" {% if loop.first %}checked{% endif %}>
+                            <span class="color-choice-circle" style="background-color: {{ col.val }};" title="{{ col.name }}"></span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Note -->
+                <div class="form-group mb-3">
+                    <label class="form-label">{{ t["goal_note"] }}</label>
+                    <input type="text" name="note" class="form-control" placeholder="{{ t['goal_note_placeholder'] }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createGoalModal')">{{ t["cancel"] }}</button>
+                <button type="submit" class="btn btn-primary">{{ t["save"] }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= Modal: Quick Deposit ================= -->
+<div class="modal-overlay" id="depositModal" onclick="closeModalOnOutside(event, 'depositModal')">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title-group text-success">
+                <i class="fa-solid fa-circle-plus"></i>
+                <h3 id="depositModalTitle">{{ t["deposit_title"] }}</h3>
+            </div>
+            <button type="button" class="btn-close-modal" onclick="closeModal('depositModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('api_savings_deposit') }}">
+            <input type="hidden" name="goal_id" id="depositGoalId" value="">
+            <div class="modal-body">
+                <div class="alert alert-success mb-3" style="font-size: 0.85rem; padding: 10px 14px; border-radius: 8px; background: rgba(16, 185, 129, 0.1); color: #065f46; border: 1px solid rgba(16, 185, 129, 0.25); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-wallet"></i>
+                    <span>{{ t["available_balance"] }}: <strong>฿{{ main_balance | currency }}</strong> (จะถูกหักออกจากยอดคงเหลือ)</span>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label font-bold">
+                        {{ t["deposit_amount"] }} (฿) <span class="text-danger">*</span>
+                    </label>
+                    <input type="number" step="0.01" min="0.01" name="amount" class="form-control form-control-lg" placeholder="0.00" required autofocus>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">{{ t["note_optional"] }}</label>
+                    <input type="text" name="note" class="form-control" placeholder="เช่น หยอดเงินทอน, รางวัลประจำสัปดาห์">
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label"><i class="fa-regular fa-calendar"></i> {{ t["date"] }}</label>
+                    <input type="date" name="date" class="form-control" value="{{ default_date or '' }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('depositModal')">{{ t["cancel"] }}</button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fa-solid fa-piggy-bank"></i> {{ t["deposit_btn"] }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= Modal: Quick Withdraw ================= -->
+<div class="modal-overlay" id="withdrawModal" onclick="closeModalOnOutside(event, 'withdrawModal')">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-title-group text-danger">
+                <i class="fa-solid fa-circle-minus"></i>
+                <h3 id="withdrawModalTitle">{{ t["withdraw_title"] }}</h3>
+            </div>
+            <button type="button" class="btn-close-modal" onclick="closeModal('withdrawModal')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('api_savings_withdraw') }}">
+            <input type="hidden" name="goal_id" id="withdrawGoalId" value="">
+            <div class="modal-body">
+                <div class="alert alert-info mb-3" style="font-size: 0.85rem; padding: 10px 14px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.25);">
+                    <i class="fa-solid fa-arrow-turn-down"></i>
+                    <span id="withdrawMaxInfo"></span> <br><small style="color: #2563eb;">(ยอดเงินที่ถอนจะถูกโอนกลับเข้าสู่ยอดเงินคงเหลือในกระเป๋าของคุณ)</small>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label font-bold">
+                        {{ t["withdraw_amount"] }} (฿) <span class="text-danger">*</span>
+                    </label>
+                    <input type="number" step="0.01" min="0.01" id="withdrawAmountInput" name="amount" class="form-control form-control-lg" placeholder="0.00" required autofocus>
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label">{{ t["note_optional"] }}</label>
+                    <input type="text" name="note" class="form-control" placeholder="เช่น นำไปใช้ตามเป้าหมาย">
+                </div>
+                <div class="form-group mb-3">
+                    <label class="form-label"><i class="fa-regular fa-calendar"></i> {{ t["date"] }}</label>
+                    <input type="date" name="date" class="form-control" value="{{ default_date or '' }}">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('withdrawModal')">{{ t["cancel"] }}</button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fa-solid fa-money-bill-transfer"></i> {{ t["withdraw_btn"] }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openCreateGoalModal() {
+        document.getElementById('createGoalModal').classList.add('active');
+    }
+
+    function openDepositModal(goalId, goalName) {
+        document.getElementById('depositGoalId').value = goalId;
+        document.getElementById('depositModalTitle').innerText = '{{ t["deposit_title"] }}: ' + goalName;
+        document.getElementById('depositModal').classList.add('active');
+    }
+
+    function openWithdrawModal(goalId, goalName, currentAmount) {
+        document.getElementById('withdrawGoalId').value = goalId;
+        document.getElementById('withdrawModalTitle').innerText = '{{ t["withdraw_title"] }}: ' + goalName;
+        const maxInput = document.getElementById('withdrawAmountInput');
+        maxInput.max = currentAmount;
+        document.getElementById('withdrawMaxInfo').innerText = 'ยอดเงินปัจจุบันในกระปุก: ฿' + currentAmount.toLocaleString('en-US', {minimumFractionDigits: 2});
+        document.getElementById('withdrawModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        const m = document.getElementById(modalId);
+        if (m) m.classList.remove('active');
+    }
+
+    function closeModalOnOutside(event, modalId) {
+        if (event.target.id === modalId) {
+            closeModal(modalId);
+        }
+    }
+</script>
+{% endblock %}

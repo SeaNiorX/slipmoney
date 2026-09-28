@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+
+{% block title %}{{ t["dashboard"] }}{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Header Greeting & Quick Action -->
+    <div class="dashboard-header">
+        <div class="greeting-box">
+            <h1 class="greeting-title">{{ t["greeting"] }}</h1>
+            <p class="greeting-desc">{{ t["dashboard_desc"] }}</p>
+        </div>
+        <div class="dashboard-actions">
+            <a href="{{ url_for('add_transaction') }}" class="btn btn-primary btn-add-main">
+                <i class="fa-solid fa-plus"></i>
+                <span>{{ t["add_transaction"] }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Metric Cards -->
+    <div class="metrics-grid">
+        <!-- Total Income Card -->
+        <div class="metric-card card-income">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["total_income"] }}</span>
+                <div class="metric-icon-bubble icon-income">
+                    <i class="fa-solid fa-arrow-down-left"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-success">
+                    <span class="currency">{{ t["currency_symbol"] }}</span>{{ stats.total_income | currency }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Expense Card -->
+        <div class="metric-card card-expense">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["total_expense"] }}</span>
+                <div class="metric-icon-bubble icon-expense">
+                    <i class="fa-solid fa-arrow-up-right"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount text-danger">
+                    <span class="currency">{{ t["currency_symbol"] }}</span>{{ stats.total_expense | currency }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Net Balance Card -->
+        <div class="metric-card card-balance">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["balance"] }}</span>
+                <div class="metric-icon-bubble icon-balance">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount {% if stats.balance >= 0 %}text-primary{% else %}text-danger{% endif %}">
+                    <span class="currency">{{ t["currency_symbol"] }}</span>{{ stats.balance | currency }}
+                </div>
+                {% if stats.total_saved > 0 %}
+                <div class="metric-subtext text-muted" style="font-size: 0.78rem; margin-top: 5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <span style="color: #10b981; font-weight: 500;"><i class="fa-solid fa-piggy-bank"></i> {{ t["in_piggy_banks"] }} {{ stats.total_saved | currency }} ฿</span>
+                    <span style="opacity: 0.75;">• {{ t["net_worth"] }} {{ stats.net_worth | currency }} ฿</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Transaction Count Card -->
+        <div class="metric-card card-count">
+            <div class="metric-header">
+                <span class="metric-title">{{ t["total_transactions"] }}</span>
+                <div class="metric-icon-bubble icon-count">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+            </div>
+            <div class="metric-body">
+                <div class="metric-amount">
+                    {{ stats.total_count }} <span class="metric-unit">{{ t["items_count"] }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <!-- Monthly Trend / Income vs Expense Chart -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3 class="chart-title">
+                    <i class="fa-solid fa-chart-column text-primary"></i>
+                    <span>{{ t["monthly_chart_title"] }}</span>
+                </h3>
+            </div>
+            <div class="chart-card-body">
+                <canvas id="monthlyTrendChart" height="260"></canvas>
+            </div>
+        </div>
+
+        <!-- Expense by Category Doughnut Chart -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <h3 class="chart-title">
+                    <i class="fa-solid fa-chart-pie text-secondary"></i>
+                    <span>{{ t["expense_by_category"] }}</span>
+                </h3>
+            </div>
+            <div class="chart-card-body">
+                {% if category_chart_values and category_chart_values|length > 0 %}
+                    <canvas id="categoryPieChart" height="260"></canvas>
+                {% else %}
+                    <div class="chart-empty-state">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <p>{{ t["no_recent_transactions"] }}</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Goals (Piggy Bank) Widget on Dashboard -->
+    <div class="card mb-4 dashboard-savings-widget">
+        <div class="card-header-styled" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="header-icon-box" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+                    <i class="fa-solid fa-piggy-bank"></i>
+                </div>
+                <div>
+                    <h3 class="card-title" style="margin: 0; font-size: 1.05rem;">{{ t["savings_title"] }}</h3>
+                    <p class="card-subtitle" style="margin: 2px 0 0; font-size: 0.85rem;">
+                        {{ t["total_savings"] }}: <strong>฿{{ savings_stats.total_saved | currency }}</strong> / ฿{{ savings_stats.total_target | currency }} ({{ savings_stats.overall_percent }}%)
+                    </p>
+                </div>
+            </div>
+            <a href="{{ url_for('savings') }}" class="btn btn-sm btn-outline-primary" style="display: flex; align-items: center; gap: 6px;">
+                <span>{{ t["view_all"] }}</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+        <div class="card-body" style="padding: 16px 20px;">
+            {% if top_savings_goals and top_savings_goals|length > 0 %}
+            <div class="dashboard-goals-mini-grid">
+                {% for goal in top_savings_goals %}
+                <div class="goal-mini-item">
+                    <div class="goal-mini-header">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span class="goal-mini-icon" style="background-color: {{ goal.color }}20; color: {{ goal.color }};">
+                                <i class="fa-solid fa-{{ goal.icon }}"></i>
+                            </span>
+                            <strong class="goal-mini-title">{{ goal.name }}</strong>
+                        </div>
+                        <span class="goal-mini-percent" style="color: {{ goal.color }}; font-weight: 700;">{{ goal.percent }}%</span>
+                    </div>
+                    <div class="piggy-progress-bar" style="height: 6px; margin: 8px 0 6px;">
+                        <div class="piggy-progress-fill" style="width: {{ goal.percent }}%; background-color: {{ goal.color }};"></div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary);">
+                        <span>฿{{ goal.current_amount | currency }}</span>
+                        <span>เป้าหมาย ฿{{ goal.target_amount | currency }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+                    {{ t["no_goals_yet"] }}
+                </p>
+                <a href="{{ url_for('savings') }}" class="btn btn-sm btn-primary">
+                    <i class="fa-solid fa-plus"></i> {{ t["create_goal_btn"] }}
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Transactions Table Section -->
+    <div class="recent-section">
+        <div class="section-header">
+            <div class="section-title-group">
+                <h2 class="section-title">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>{{ t["recent_transactions"] }}</span>
+                </h2>
+            </div>
+            <a href="{{ url_for('transactions') }}" class="btn-link-viewall">
+                <span>{{ t["view_all"] }}</span>
+                <i class="fa-solid fa-arrow-right"></i>
+            </a>
+        </div>
+
+        <div class="table-responsive-wrapper">
+            {% if recent_transactions and recent_transactions|length > 0 %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ t["table_date"] }}</th>
+                        <th>{{ t["table_type"] }}</th>
+                        <th>{{ t["table_category"] }}</th>
+                        <th>{{ t["table_description"] }}</th>
+                        <th class="text-right">{{ t["table_amount"] }}</th>
+                        <th class="text-center">{{ t["table_slip"] }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions %}
+                    <tr>
+                        <td class="cell-datetime">
+                            <span class="date-text">{{ tx.date }}</span>
+                            <span class="time-text">{{ tx.time }}</span>
+                        </td>
+                        <td>
+                            {% if tx.type == 'income' %}
+                                <span class="badge badge-income">
+                                    <i class="fa-solid fa-arrow-down-left"></i>
+                                    {{ t["income"] }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-expense">
+                                    <i class="fa-solid fa-arrow-up-right"></i>
+                                    {{ t["expense"] }}
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="category-pill">
+                                {{ tx.category | cat_name }}
+                            </span>
+                        </td>
+                        <td class="cell-desc">
+                            {{ tx.description or '-' }}
+                        </td>
+                        <td class="text-right font-bold {% if tx.type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                            {% if tx.type == 'income' %}+{% else %}-{% endif %}฿{{ tx.amount | currency }}
+                        </td>
+                        <td class="text-center">
+                            {% if tx.slip_filename %}
+                                <button type="button" 
+                                        class="btn-icon-slip" 
+                                        onclick="openSlipModal('{{ url_for('uploaded_file', filename=tx.slip_filename) }}')"
+                                        title="{{ t['view_slip'] }}">
+                                    <i class="fa-solid fa-file-image"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-muted-dash">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state-box">
+                <div class="empty-icon">
+                    <i class="fa-solid fa-folder-open"></i>
+                </div>
+                <p class="empty-text">{{ t["no_recent_transactions"] }}</p>
+                <a href="{{ url_for('add_transaction') }}" class="btn btn-primary mt-3">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>{{ t["add_transaction"] }}</span>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Pass chart data from Flask to JS safely
+    window.chartMonthlyData = {{ monthly_chart_data | tojson }};
+    window.chartCategoryLabels = {{ category_chart_labels | tojson }};
+    window.chartCategoryValues = {{ category_chart_values | tojson }};
+    window.langIncomeText = "{{ t['income'] }}";
+    window.langExpenseText = "{{ t['expense'] }}";
+    window.currencySymbol = "{{ t['currency_symbol'] }}";
+</script>
+<script src="{{ url_for('static', filename='js/dashboard-charts.js') }}"></script>
+{% endblock %}

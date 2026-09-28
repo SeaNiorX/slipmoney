@@ -1,0 +1,26 @@
+# Environment & Secrets
+*token_backup.txt
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+
+# Database
+*.db
+*.sqlite3
+
+# Uploads
+uploads/slip_*.jpg
+uploads/slip_*.png
+uploads/slip_*.jpeg
+uploads/temp_*
+
+# Cloudflare Worker & temporary
+cf-worker/
+.wrangler/
+node_modules/
