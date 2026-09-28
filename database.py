@@ -459,3 +459,94 @@ def get_savings_history(goal_id=None, limit=15):
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+# ==========================================
+# Nested List (2D List) Data Processing
+# ==========================================
+def get_financial_summary_matrix():
+    """
+    Constructs and returns a 2D Nested List (Matrix) summarizing financial records by category.
+    Structure of Nested List:
+    [
+        # [category_key, total_income, total_expense, net_balance, transaction_count]
+        ['food', 0.0, 1500.0, -1500.0, 12],
+        ['salary', 35000.0, 0.0, 35000.0, 1],
+        ['transport', 0.0, 420.0, -420.0, 5],
+        ...
+    ]
+    Demonstrates:
+    - 2D Nested List creation
+    - Index-based column access (row[0], row[1], ...)
+    - Multi-dimensional data representation
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 
+            category,
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
+            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense,
+            COUNT(id) as count
+        FROM transactions
+        GROUP BY category
+        ORDER BY expense DESC, income DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    # 2D Nested List construction
+    matrix = []
+    for r in rows:
+        cat_key = str(r["category"])
+        inc_val = round(float(r["income"]), 2)
+        exp_val = round(float(r["expense"]), 2)
+        net_val = round(inc_val - exp_val, 2)
+        cnt_val = int(r["count"])
+        
+        # Each row is an inner list -> forms a 2D Nested List
+        row = [cat_key, inc_val, exp_val, net_val, cnt_val]
+        matrix.append(row)
+
+    return matrix
+
+def process_matrix_summary(matrix):
+    """
+    Processes the 2D Nested List to calculate overall totals using index-based access:
+    - row[0]: Category name (str)
+    - row[1]: Income (float)
+    - row[2]: Expense (float)
+    - row[3]: Net (float)
+    - row[4]: Count (int)
+    Returns: dict with aggregated totals and category metrics
+    """
+    total_inc = 0.0
+    total_exp = 0.0
+    active_categories = 0
+    top_expense_category = None
+    max_expense = 0.0
+    
+    # Iterate through each inner list (row) of the nested list
+    for row in matrix:
+        cat_name = row[0]    # Column 0: Category name (str)
+        inc = row[1]         # Column 1: Income (float)
+        exp = row[2]         # Column 2: Expense (float)
+        net = row[3]         # Column 3: Net (float)
+        cnt = row[4]         # Column 4: Count (int)
+        
+        total_inc += inc
+        total_exp += exp
+        if cnt > 0:
+            active_categories += 1
+        if exp > max_expense:
+            max_expense = exp
+            top_expense_category = cat_name
+            
+    return {
+        "total_income": round(total_inc, 2),
+        "total_expense": round(total_exp, 2),
+        "net_balance": round(total_inc - total_exp, 2),
+        "active_categories": active_categories,
+        "top_expense_category": top_expense_category,
+        "max_expense": max_expense
+    }
+

@@ -268,6 +268,71 @@
             {% endif %}
         </div>
     </div>
+
+    <!-- Category Financial Breakdown Matrix (2D Nested List Demonstration) -->
+    {% if category_matrix and category_matrix|length > 0 %}
+    <div class="recent-section mt-4 mb-4">
+        <div class="section-header">
+            <div class="section-title-group">
+                <h2 class="section-title">
+                    <i class="fa-solid fa-table-cells-large"></i>
+                    <span>{{ t["category_matrix_title"] }}</span>
+                </h2>
+            </div>
+            <span class="badge badge-info" style="font-size: 0.8rem; padding: 4px 10px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 20px;">
+                2D Nested List Matrix
+            </span>
+        </div>
+
+        <div class="table-responsive-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>{{ t["table_category"] }}</th>
+                        <th class="text-right">{{ t["income"] }}</th>
+                        <th class="text-right">{{ t["expense"] }}</th>
+                        <th class="text-right">{{ t["matrix_net"] }}</th>
+                        <th class="text-center">{{ t["matrix_count"] }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in category_matrix %}
+                    <tr>
+                        <td>
+                            <strong style="color: var(--text-primary);">{{ row[0] | cat_name }}</strong>
+                        </td>
+                        <td class="text-right" style="color: #10b981; font-weight: 600;">
+                            {% if row[1] > 0 %}+฿{{ row[1] | currency }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right" style="color: #ef4444; font-weight: 600;">
+                            {% if row[2] > 0 %}-฿{{ row[2] | currency }}{% else %}-{% endif %}
+                        </td>
+                        <td class="text-right" style="font-weight: 700; color: {% if row[3] >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                            ฿{{ row[3] | currency }}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge badge-secondary" style="font-size: 0.8rem; background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-secondary);">
+                                {{ row[4] }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr style="background: var(--bg-hover); font-weight: 700; border-top: 2px solid var(--border-color);">
+                        <td>{{ t["summary"] if t["summary"] else "Total" }}</td>
+                        <td class="text-right" style="color: #10b981;">+฿{{ matrix_summary.total_income | currency }}</td>
+                        <td class="text-right" style="color: #ef4444;">-฿{{ matrix_summary.total_expense | currency }}</td>
+                        <td class="text-right" style="color: {% if matrix_summary.net_balance >= 0 %}#10b981{% else %}#ef4444{% endif %};">
+                            ฿{{ matrix_summary.net_balance | currency }}
+                        </td>
+                        <td class="text-center">{{ stats.total_count }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

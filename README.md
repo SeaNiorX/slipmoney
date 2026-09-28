@@ -72,9 +72,10 @@ slipmoney/
 ├── database.db                # SQLite Database File
 ├── ocr_service.py             # OCR Slip Processing Engine (pytesseract)
 ├── translations.py            # Bilingual Dictionary (Thai / English)
+├── FLOWCHART.md               # System Flowcharts & Mermaid Diagrams
 ├── requirements.txt           # Python Dependencies
 ├── seed_data.py               # Data Seeder with Sample Slips
-├── test_app.py                # Automated Test Suite (7 Unit Tests)
+├── test_app.py                # Automated Test Suite (8 Unit Tests)
 ├── verify_translations.py     # Bilingual Verification Script
 ├── tessdata/                  # Tesseract Language Models (eng + tha)
 │   ├── eng.traineddata

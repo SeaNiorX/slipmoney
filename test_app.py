@@ -131,5 +131,33 @@ class SlipMoneyTestCase(unittest.TestCase):
             res2 = self.client.get('/dashboard')
             self.assertEqual(res2.status_code, 302)
 
+    def test_08_nested_list_matrix(self):
+        """Verify 2D Nested List creation, index access, and processing"""
+        matrix = database.get_financial_summary_matrix()
+        # 1. Outer container must be a list
+        self.assertIsInstance(matrix, list)
+        
+        # If there are transactions, verify inner elements are lists (2D Nested List)
+        if len(matrix) > 0:
+            for row in matrix:
+                self.assertIsInstance(row, list)
+                self.assertEqual(len(row), 5) # [cat, inc, exp, net, count]
+                self.assertIsInstance(row[0], str)   # Category key
+                self.assertIsInstance(row[1], float) # Income
+                self.assertIsInstance(row[2], float) # Expense
+                self.assertIsInstance(row[3], float) # Net balance
+                self.assertIsInstance(row[4], int)   # Count
+            
+            # 2. Test 2D index-based element access
+            first_cat = matrix[0][0]
+            self.assertIsInstance(first_cat, str)
+            
+            # 3. Test matrix processing function
+            summary = database.process_matrix_summary(matrix)
+            self.assertIn("total_income", summary)
+            self.assertIn("total_expense", summary)
+            self.assertIn("net_balance", summary)
+            self.assertIn("active_categories", summary)
+
 if __name__ == '__main__':
     unittest.main()

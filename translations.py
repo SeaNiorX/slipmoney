@@ -57,6 +57,9 @@ TRANSLATIONS = {
         "monthly_chart_title": "แนวโน้มรายรับ-รายจ่าย (6 เดือนล่าสุด)",
         "currency_symbol": "฿",
         "items_count": "รายการ",
+        "category_matrix_title": "สรุปการเงินรายหมวดหมู่ (Category Financial Matrix)",
+        "matrix_net": "ยอดสุทธิ",
+        "matrix_count": "จำนวนรายการ",
         
         # Add / Edit Transaction
         "add_transaction_title": "เพิ่มรายการใหม่",
@@ -253,6 +256,9 @@ TRANSLATIONS = {
         "monthly_chart_title": "Income & Expense Trend (Last 6 Months)",
         "currency_symbol": "฿",
         "items_count": "items",
+        "category_matrix_title": "Category Financial Breakdown Matrix",
+        "matrix_net": "Net Balance",
+        "matrix_count": "Tx Count",
         
         # Add / Edit Transaction
         "add_transaction_title": "Add New Transaction",

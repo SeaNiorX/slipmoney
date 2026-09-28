@@ -166,6 +166,10 @@ def dashboard():
         category_chart_labels.append(label)
         category_chart_values.append(amount)
 
+    # Financial Summary Matrix (2D Nested List demonstration)
+    category_matrix = database.get_financial_summary_matrix()
+    matrix_summary = database.process_matrix_summary(category_matrix)
+
     return render_template(
         "dashboard.html",
         stats=stats,
@@ -174,7 +178,9 @@ def dashboard():
         category_chart_values=category_chart_values,
         monthly_chart_data=chart_info["monthly"],
         savings_stats=savings_stats,
-        top_savings_goals=top_savings_goals
+        top_savings_goals=top_savings_goals,
+        category_matrix=category_matrix,
+        matrix_summary=matrix_summary
     )
 
 @app.route("/transactions")
