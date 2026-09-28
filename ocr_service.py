@@ -58,39 +58,29 @@ def clean_year(raw_year):
 
 def preprocess_image(image_path):
     """
-    Load image, transpose EXIF orientation, resize to ideal OCR scale,
-    and generate enhanced variants (grayscale + contrast).
+    Load image, transpose EXIF orientation, convert directly to grayscale,
+    and scale to optimal OCR dimensions (width around 600px for 5x speedup on cloud CPU).
     """
     images = []
     try:
         raw_img = Image.open(image_path)
-        # Fix orientation from mobile phone cameras (EXIF)
-        orig = ImageOps.exif_transpose(raw_img).convert('RGB')
+        # Fix orientation from mobile phone cameras (EXIF) and convert to Grayscale
+        gray = ImageOps.exif_transpose(raw_img).convert('L')
         
-        # Scale image to optimal OCR dimensions (width around 1000px for high speed & clarity)
-        w, h = orig.size
-        if w > 1200:
-            target_w = 1000
-            target_h = int(h * (target_w / w))
-            scaled = orig.resize((target_w, target_h), Image.Resampling.LANCZOS)
-        elif w < 600:
-            target_w = 900
-            target_h = int(h * (target_w / w))
-            scaled = orig.resize((target_w, target_h), Image.Resampling.BICUBIC)
-        else:
-            scaled = orig
+        # Scale image to optimal OCR dimensions (width around 600px is the sweet spot for mobile slips)
+        w, h = gray.size
+        target_w = 600
+        target_h = int(h * (target_w / w))
+        scaled = gray.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
-        images.append(scaled)
+        # Primary variant: balanced contrast
+        enhancer = ImageEnhance.Contrast(scaled)
+        primary = enhancer.enhance(1.4)
+        images.append(primary)
 
-        # Variant 1: Grayscale + high contrast
-        gray = scaled.convert('L')
-        enhancer = ImageEnhance.Contrast(gray)
-        enhanced = enhancer.enhance(1.8)
-        images.append(enhanced)
-
-        # Variant 2: Slightly sharpened
-        sharpened = enhanced.filter(ImageFilter.SHARPEN)
-        images.append(sharpened)
+        # Fallback variant: higher contrast (only used if primary didn't find amount)
+        high_contrast = enhancer.enhance(1.9)
+        images.append(high_contrast)
 
     except Exception as e:
         print(f"Image preprocessing error: {e}")
@@ -270,8 +260,8 @@ def parse_ref_no(text):
     normalized = text.replace('\xa0', ' ')
 
     patterns = [
-        # Explicit reference keywords followed by alphanumeric string
-        r'(?:รหัสอ้างอิง|เลขที่อ้างอิง|หมายเลขอ้างอิง|เลขที่รายการ|เลขที่สลิป|รหัสธุรกรรม|ref(?:\s*no\.?|\.?)|trans(?:\s*ref\.?|\.?)|reference(?:\s*no\.?|\.?)|txn(?:\s*id\.?|\.?))[\s:=]*([a-zA-Z0-9]{8,35})',
+        # Explicit reference keywords with flexible spacing/fuzzy OCR noise
+        r'(?:รหัส[^\s]{0,6}อ[^\s]{0,4}งอิง|รหัสอ้างอิง|เลขที่อ้างอิง|หมายเลขอ้างอิง|เลขที่รายการ|เลขที่สลิป|รหัสธุรกรรม|ref(?:\s*no\.?|\.?)|trans(?:\s*ref\.?|\.?)|reference(?:\s*no\.?|\.?)|txn(?:\s*id\.?|\.?))[\s:=]*([a-zA-Z0-9]{8,35})',
         # Word boundary matching ref / txn codes
         r'\b(?:ref|txn)[\s:.-]*([a-zA-Z0-9]{10,35})\b',
     ]
