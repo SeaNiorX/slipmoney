@@ -141,9 +141,9 @@ function processUploadFile(file) {
             // Duplicate slip detected!
             const dup = data.duplicate_info;
             if (ocrNoticeDuplicate && duplicateWarningText) {
-                duplicateWarningText.innerHTML = `⚠️ สลิปนี้มีบันทึกในระบบแล้ว (ID: #${dup.id})<br>` +
-                    `📅 <strong>${dup.date} ${dup.time}</strong> &nbsp;|&nbsp; ` +
-                    `💰 <strong>${window.currencySymbol || '฿'}${dup.amount}</strong><br>` +
+                duplicateWarningText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-danger"></i> สลิปนี้มีบันทึกในระบบแล้ว (ID: #${dup.id})<br>` +
+                    `<i class="fa-regular fa-calendar"></i> <strong>${dup.date} ${dup.time}</strong> &nbsp;|&nbsp; ` +
+                    `<i class="fa-solid fa-coins"></i> <strong>${window.currencySymbol || '฿'}${dup.amount}</strong><br>` +
                     `รหัสอ้างอิง: <strong style="font-family: monospace;">${dup.ref_no}</strong>`;
                 ocrNoticeDuplicate.style.display = 'flex';
             }
@@ -160,7 +160,7 @@ function processUploadFile(file) {
                     if (detailSpan) {
                         const originalText = detailSpan.getAttribute('data-original') || detailSpan.textContent;
                         detailSpan.setAttribute('data-original', originalText);
-                        detailSpan.innerHTML = `${originalText}<br><small style="opacity: 0.9; font-weight: 600;">✓ สแกนพบ: ${detected.join(' | ')}</small>`;
+                        detailSpan.innerHTML = `${originalText}<br><small style="opacity: 0.9; font-weight: 600;"><i class="fa-solid fa-check"></i> สแกนพบ: ${detected.join(' | ')}</small>`;
                     }
                 }
             }
